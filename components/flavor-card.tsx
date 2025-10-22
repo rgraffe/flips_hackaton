@@ -8,12 +8,6 @@ interface FlavorCardProps {
   explanation: string
 }
 
-const rankIcons = {
-  1: Trophy,
-  2: Medal,
-  3: Award,
-}
-
 const rankColors = {
   1: "text-flips-red",
   2: "text-flips-purple",
@@ -26,29 +20,29 @@ const rankBgColors = {
   3: "bg-flips-orange/10",
 }
 
+const rankIcons = {
+  1: Trophy,
+  2: Medal,
+  3: Award,
+}
+
 export function FlavorCard({ rank, name, explanation }: FlavorCardProps) {
-  const Icon = rankIcons[rank as keyof typeof rankIcons]
   const colorClass = rankColors[rank as keyof typeof rankColors]
   const bgColorClass = rankBgColors[rank as keyof typeof rankBgColors]
+  const Icon = rankIcons[rank as keyof typeof rankIcons]
 
   return (
-    <Card className="relative overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 border-2">
-      <div className={`absolute top-0 right-0 ${bgColorClass} px-3 py-1 rounded-bl-lg`}>
-        <Badge variant="secondary" className="bg-transparent border-0 text-xs font-semibold">
-          Alta Probabilidad de Aceptación
-        </Badge>
-      </div>
-
-      <CardHeader className="text-center pt-8 pb-4">
-        <div className="flex flex-col items-center gap-3 mb-4">
-          <Icon className={`w-16 h-16 ${colorClass}`} />
-          <div className={`text-6xl font-bold ${colorClass}`}>#{rank}</div>
+    <Card className="relative overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300 border py-3 gap-3">
+      <CardHeader className="pt-2 pb-1">
+        <div className="flex items-center gap-2">
+          <Icon className={`w-5 h-5 ${colorClass}`} />
+          <span className={`inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-semibold ${colorClass} border-current`}>#{rank}</span>
+          <h3 className="text-lg sm:text-xl font-semibold text-foreground text-balance">{name}</h3>
         </div>
-        <h3 className="text-2xl font-bold text-foreground text-balance">{name}</h3>
       </CardHeader>
 
-      <CardContent>
-        <p className="text-sm text-muted-foreground leading-relaxed text-justify">{explanation}</p>
+      <CardContent className="pt-0">
+        <p className="text-sm text-muted-foreground leading-relaxed">{explanation}</p>
       </CardContent>
     </Card>
   )

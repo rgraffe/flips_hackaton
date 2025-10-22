@@ -1,47 +1,109 @@
-import { FlavorCard } from "@/components/flavor-card"
-import { Button } from "@/components/ui/button"
+"use client"
 
-// Mock data - in production this would come from the n8n API
-const mockFlavors = [
-  {
-    rank: 1,
-    name: "Flips Chocolate y Avellana",
-    explanation:
-      "Este sabor combina la riqueza del chocolate con el toque crujiente de la avellana, creando una experiencia sensorial única. Basado en el análisis de tendencias globales y preferencias locales, este sabor responde a la creciente demanda de combinaciones dulces y sofisticadas en snacks salados. El social listening reveló un alto interés en sabores que evocan postres premium, posicionando esta propuesta como la favorita entre consumidores de 18-35 años.",
-  },
-  {
-    rank: 2,
-    name: "Flips Limón y Pimienta",
-    explanation:
-      "Una fusión audaz que equilibra la frescura cítrica del limón con el toque picante de la pimienta negra. Esta combinación responde a la tendencia de sabores contrastantes y experiencias gustativas complejas. Los datos de social listening muestran un creciente interés en sabores refrescantes con un toque de especias, especialmente entre consumidores que buscan alternativas innovadoras a los sabores tradicionales.",
-  },
-  {
-    rank: 3,
-    name: "Flips Queso Parmesano y Trufa",
-    explanation:
-      "Un sabor gourmet que eleva la experiencia de snacking con la combinación de queso parmesano añejo y el aroma distintivo de la trufa. Esta propuesta capitaliza la tendencia de premiumización en el mercado de snacks, atrayendo a consumidores que buscan experiencias culinarias sofisticadas. El análisis sensorial indica una alta aceptación entre segmentos de mayor poder adquisitivo y consumidores foodie.",
-  },
-]
+import { FlavorCard } from "@/components/flavor-card"
+import { useEffect, useState } from "react"
 
 export function FlipsResults() {
+  const [flavors, setFlavors] = useState<{
+    sabor: string
+    justificacion: string
+  }[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [imageB64, setImageB64] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchResults = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await fetch("/api/n8n/results", { method: "GET" })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        let data = await res.json()
+        // Si la respuesta tiene data.resultados como string, parsear ese string
+        let resultados: any[] = []
+        if (data?.data?.resultados && typeof data.data.resultados === "string") {
+          try {
+            const parsed = JSON.parse(data.data.resultados)
+            resultados = Array.isArray(parsed.resultados) ? parsed.resultados : []
+            // Si la imagen viene dentro del JSON string, tomarla y loguearla
+            if (typeof parsed?.imagen === "string" && parsed.imagen.length > 0) {
+              setImageB64(parsed.imagen)
+              console.log('Imagen n8n (data URL, parsed):', `data:image/png;base64,${parsed.imagen}`)
+            }
+          } catch {
+            resultados = []
+          }
+        } else if (Array.isArray(data?.data?.resultados)) {
+          resultados = data.data.resultados
+        }
+  setFlavors(resultados)
+        // Capturar imagen base64 si viene en la respuesta
+        if (typeof data?.data?.imagen === "string" && data.data.imagen.length > 0) {
+          setImageB64(data.data.imagen)
+          // Mostrar también la imagen (data URL) en consola
+          console.log('Imagen n8n (data URL):', `data:image/png;base64,${data.data.imagen}`)
+        }
+  // Mostrar los tres sabores parseados en consola
+  console.log('Sabores n8n:', resultados.slice(0, 3))
+      } catch (err: any) {
+        setError(err?.message ?? "Error desconocido")
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchResults()
+  }, [])
+
+  // Escucha resultados solicitados desde el botón "Consultar resultados"
+  useEffect(() => {
+    const handler = (e: CustomEvent<{ sabores?: any[]; imagen?: string }>) => {
+      const sabores = Array.isArray(e.detail?.sabores) ? e.detail!.sabores : []
+      setFlavors(sabores as any)
+      setImageB64(e.detail?.imagen ?? null)
+    }
+    // @ts-expect-error Custom event type
+    window.addEventListener('n8n:results', handler)
+    return () => {
+      // @ts-expect-error Custom event type
+      window.removeEventListener('n8n:results', handler)
+    }
+  }, [])
+
   return (
     <section className="py-16 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-white to-gray-50">
       <div className="max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 mb-12">
-          {mockFlavors.map((flavor) => (
-            <FlavorCard key={flavor.rank} {...flavor} />
-          ))}
-        </div>
+        {loading ? (
+          <div className="text-center py-12 text-lg text-muted-foreground">Cargando resultados…</div>
+        ) : error ? (
+          <div className="text-center py-12 text-destructive">{error}</div>
+        ) : (
+          <div className="grid gap-8 lg:grid-cols-12 items-start">
+            {/* Columna izquierda (1/3): Imagen */}
+            <div className="flex justify-center lg:justify-start lg:col-span-5">
+              {imageB64 ? (
+                <img
+                  src={`data:image/png;base64,${imageB64}`}
+                  alt="Imagen generada - Flips"
+                  className="w-full max-w-xl lg:max-w-none max-h-[720px] lg:max-h-[820px] object-contain rounded-xl"
+                  loading="lazy"
+                />
+              ) : null}
+            </div>
 
-        <div className="text-center">
-          <Button
-            size="lg"
-            disabled
-            className="bg-flips-blue hover:bg-flips-blue/90 text-white font-semibold px-8 py-6 text-lg"
-          >
-            Ver Fichas Técnicas
-          </Button>
-        </div>
+            {/* Columna derecha (2/3): Top 3 apilado */}
+            <div className="lg:col-span-7 space-y-5">
+              {flavors.slice(0, 3).map((flavor, idx) => (
+                <FlavorCard
+                  key={idx}
+                  rank={idx + 1}
+                  name={flavor.sabor}
+                  explanation={flavor.justificacion}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </section>
   )
