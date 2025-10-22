@@ -1,12 +1,37 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 
 export function N8nControls() {
   const [loadingTrigger, setLoadingTrigger] = useState(false)
   const [loadingQuery, setLoadingQuery] = useState(false)
   const [lastMessage, setLastMessage] = useState<string | null>(null)
+  const [cooldown, setCooldown] = useState(0) // seconds remaining (0 = no cooldown)
+
+  // Tick the cooldown every second when active
+  useEffect(() => {
+    if (cooldown <= 0) return
+    const id = setInterval(() => {
+      setCooldown((s) => (s > 0 ? s - 1 : 0))
+    }, 1000)
+    return () => clearInterval(id)
+  }, [cooldown])
+
+  // When cooldown finishes, inform user that they can consult
+  const prevCooldownRef = useRef(0)
+  useEffect(() => {
+    if (prevCooldownRef.current > 0 && cooldown === 0) {
+      setLastMessage('Listo para consultar')
+    }
+    prevCooldownRef.current = cooldown
+  }, [cooldown])
+
+  const formatTime = (totalSeconds: number) => {
+    const m = Math.floor(totalSeconds / 60)
+    const s = totalSeconds % 60
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+  }
 
   const triggerFlow = async () => {
     setLoadingTrigger(true)
@@ -15,7 +40,9 @@ export function N8nControls() {
       const res = await fetch('/api/n8n/trigger', { method: 'GET' })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
-      setLastMessage(data?.message ?? 'Flujo n8n activado')
+      setLastMessage(data?.message ?? 'Flujo n8n activado. Contador: 03:00')
+      // Iniciar cooldown de 3 minutos (180 s) tras activar el flujo
+      setCooldown(180)
     } catch (err: any) {
       setLastMessage(`Error al activar el flujo: ${err?.message ?? 'desconocido'}`)
     } finally {
@@ -73,6 +100,8 @@ export function N8nControls() {
     }
   }
 
+  const isLocked = loadingTrigger || loadingQuery || cooldown > 0
+
   return (
     <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
       <div className="bg-white/80 backdrop-blur rounded-xl shadow-sm border p-4 sm:p-6 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
@@ -85,12 +114,16 @@ export function N8nControls() {
         <div className="flex gap-2">
           <Button
             onClick={triggerFlow}
-            disabled={loadingTrigger}
+            disabled={isLocked}
             className="bg-flips-purple text-white hover:bg-flips-purple/90 focus-visible:ring-flips-purple/30"
           >
-            {loadingTrigger ? 'Activando…' : 'Activar flujo'}
+            {loadingTrigger
+              ? 'Activando…'
+              : cooldown > 0
+              ? `En curso ${formatTime(cooldown)}`
+              : 'Activar flujo'}
           </Button>
-          <Button variant="secondary" onClick={queryResults} disabled={loadingQuery}>
+          <Button variant="secondary" onClick={queryResults} disabled={isLocked}>
             {loadingQuery ? 'Consultando…' : 'Consultar resultados'}
           </Button>
         </div>
